@@ -1,5 +1,8 @@
-const { Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { getGuildConfig, setGuildConfig } = require('../utils/ticketDb');
+
+// Almacenamiento en memoria para guardar el creador y agente de cada ticket temporalmente para la valoración
+const ticketSessionData = new Map();
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -29,39 +32,45 @@ module.exports = {
             const { customId, guild, member, channel } = interaction;
             const config = getGuildConfig(guild.id);
 
-            // Botón de Abrir Ticket
+            // Botón de Abrir Ticket (Muestra el selector de categoría)
             if (customId === 'qvis_ticket_open') {
                 if (!config) {
                     return interaction.reply({ content: '❌ El sistema de tickets no está configurado en este servidor.', ephemeral: true });
                 }
 
-                // Mostrar Modal de Asunto
-                const modal = new ModalBuilder()
-                    .setCustomId('qvis_ticket_modal')
-                    .setTitle('Formulario de Ticket - Qvis');
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('qvis_ticket_category_select')
+                    .setPlaceholder('Selecciona una categoría de soporte')
+                    .addOptions(
+                        new StringSelectMenuOptionBuilder()
+                            .setLabel('Soporte Técnico')
+                            .setValue('tecnico')
+                            .setDescription('Dudas de software o problemas de compilación')
+                            .setEmoji('🛠️'),
+                        new StringSelectMenuOptionBuilder()
+                            .setLabel('Reportes de Usuarios')
+                            .setValue('reportes')
+                            .setDescription('Reportar comportamiento inadecuado o abuso')
+                            .setEmoji('🚨'),
+                        new StringSelectMenuOptionBuilder()
+                            .setLabel('Compras / Donaciones')
+                            .setValue('compras')
+                            .setDescription('Dudas de pagos, donaciones o ventajas')
+                            .setEmoji('💸'),
+                        new StringSelectMenuOptionBuilder()
+                            .setLabel('Aplicaciones / Postulaciones')
+                            .setValue('postulaciones')
+                            .setDescription('Postularse para el equipo de soporte')
+                            .setEmoji('📝')
+                    );
 
-                const subjectInput = new TextInputBuilder()
-                    .setCustomId('ticket_subject')
-                    .setLabel('Asunto del Ticket')
-                    .setPlaceholder('Ej: Error de compilación, Dudas de hosting...')
-                    .setStyle(TextInputStyle.Short)
-                    .setMaxLength(100)
-                    .setRequired(true);
+                const row = new ActionRowBuilder().addComponents(selectMenu);
 
-                const descInput = new TextInputBuilder()
-                    .setCustomId('ticket_description')
-                    .setLabel('Detalles / Descripción')
-                    .setPlaceholder('Describe detalladamente tu consulta o problema para ayudarte mejor.')
-                    .setStyle(TextInputStyle.Paragraph)
-                    .setMaxLength(500)
-                    .setRequired(true);
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(subjectInput),
-                    new ActionRowBuilder().addComponents(descInput)
-                );
-
-                return interaction.showModal(modal);
+                return interaction.reply({
+                    content: 'Por favor, selecciona la categoría adecuada para tu ticket:',
+                    components: [row],
+                    ephemeral: true
+                });
             }
 
             // Botón de Cerrar Ticket
@@ -116,12 +125,11 @@ module.exports = {
             // Botón de Reclamar Ticket (Claim)
             if (customId === 'qvis_ticket_claim') {
                 try {
-                    // Verificar si el usuario tiene el rol de soporte configurado
                     if (!member.roles.cache.has(config.supportRoleId)) {
                         return interaction.reply({ content: '❌ Solo los miembros del equipo de soporte pueden reclamar este ticket.', ephemeral: true });
                     }
 
-                    // Actualizar permisos: quitar al rol de soporte general y dar acceso directo al que reclamó
+                    // Actualizar permisos
                     await channel.permissionOverwrites.edit(config.supportRoleId, { SendMessages: false });
                     await channel.permissionOverwrites.edit(member.id, {
                         ViewChannel: true,
@@ -130,7 +138,11 @@ module.exports = {
                         AttachFiles: true
                     });
 
-                    // Modificar el embed del ticket original (eliminando el botón de Claim)
+                    // Guardar agente asignado a esta sesión de ticket
+                    const session = ticketSessionData.get(channel.id) || {};
+                    session.agentId = member.id;
+                    ticketSessionData.set(channel.id, session);
+
                     const claimEmbed = new EmbedBuilder()
                         .setTitle('🙋‍♂️ Ticket Reclamado')
                         .setDescription(`El miembro de soporte **${member.user.tag}** atenderá esta solicitud en exclusiva de ahora en adelante.`)
@@ -160,11 +172,39 @@ module.exports = {
                 }
             }
 
-            // Botón de Eliminar Ticket
+            // Botón de Eliminar Ticket (Con trigger de feedback DM)
             if (customId === 'qvis_ticket_delete') {
-                await interaction.reply('🧹 Eliminando el ticket en 5 segundos...');
+                await interaction.reply('🧹 Generando encuesta de valoración y eliminando canal en 5 segundos...');
+
+                const session = ticketSessionData.get(channel.id);
+                if (session && session.creatorId) {
+                    try {
+                        const user = await client.users.fetch(session.creatorId);
+                        
+                        // Crear botones del 1 al 5 estrellas
+                        const starRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`feedback_star_1_${session.agentId || 'none'}`).setLabel('⭐').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId(`feedback_star_2_${session.agentId || 'none'}`).setLabel('⭐⭐').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId(`feedback_star_3_${session.agentId || 'none'}`).setLabel('⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId(`feedback_star_4_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder().setCustomId(`feedback_star_5_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary)
+                        );
+
+                        const feedbackEmbed = new EmbedBuilder()
+                            .setTitle('⭐ Valora nuestro soporte en Qvis')
+                            .setDescription(`Tu ticket en **${guild.name}** ha finalizado.\nPor favor, califica la ayuda recibida usando los botones de abajo.`)
+                            .setColor('#5865F2')
+                            .setTimestamp();
+
+                        await user.send({ embeds: [feedbackEmbed], components: [starRow] });
+                    } catch (err) {
+                        console.log('No se pudo enviar mensaje directo de valoración (DMs cerrados).');
+                    }
+                }
+
                 setTimeout(async () => {
                     try {
+                        ticketSessionData.delete(channel.id);
                         await channel.delete();
                     } catch (err) {
                         console.error('Error al borrar canal:', err);
@@ -197,15 +237,93 @@ module.exports = {
                     await interaction.editReply('❌ Error al generar la transcripción.');
                 }
             }
+
+            // Feedback de Estrellas (captura los clics de botón en DMs)
+            if (customId.startsWith('feedback_star_')) {
+                const parts = customId.split('_');
+                const rating = parts[2];
+                const agentId = parts[3];
+
+                const ratingEmoji = '⭐'.repeat(parseInt(rating));
+
+                const finalEmbed = new EmbedBuilder()
+                    .setTitle('🙏 ¡Muchas gracias!')
+                    .setDescription(`Has calificado la atención con ${ratingEmoji}.\nTu opinión nos ayuda a mejorar.`)
+                    .setColor('#43B581')
+                    .setTimestamp();
+
+                // Intentar enviar a logs del servidor correspondiente
+                // Dado que es un DM, buscamos en los servidores mutuos la configuración
+                for (const [, sharedGuild] of client.guilds.cache) {
+                    const guildConfig = getGuildConfig(sharedGuild.id);
+                    if (guildConfig && guildConfig.logsChannelId) {
+                        const logsChan = sharedGuild.channels.cache.get(guildConfig.logsChannelId);
+                        if (logsChan) {
+                            const logFeedbackEmbed = new EmbedBuilder()
+                                .setTitle('⭐ Valoración de Soporte')
+                                .addFields(
+                                    { name: 'Usuario', value: `${member.user.tag}`, inline: true },
+                                    { name: 'Puntuación', value: `${ratingEmoji} (${rating}/5)`, inline: true },
+                                    { name: 'Agente evaluado', value: agentId !== 'none' ? `<@${agentId}>` : 'Ninguno asignado', inline: true }
+                                )
+                                .setColor('#FEE75C')
+                                .setTimestamp();
+                            await logsChan.send({ embeds: [logFeedbackEmbed] });
+                        }
+                    }
+                }
+
+                await interaction.update({ embeds: [finalEmbed], components: [] });
+            }
+        }
+
+        // Manejar selección del Selector de Categoría
+        if (interaction.isStringSelectMenu()) {
+            const { customId, guild, member } = interaction;
+
+            if (customId === 'qvis_ticket_category_select') {
+                const selectedCategory = interaction.values[0];
+                const config = getGuildConfig(guild.id);
+
+                // Guardar la categoría elegida temporalmente en la interacción para el Modal
+                // Mostramos el modal de entrada
+                const modal = new ModalBuilder()
+                    .setCustomId(`qvis_ticket_modal_${selectedCategory}`)
+                    .setTitle('Formulario de Ticket - Qvis');
+
+                const subjectInput = new TextInputBuilder()
+                    .setCustomId('ticket_subject')
+                    .setLabel('Asunto del Ticket')
+                    .setPlaceholder('Describe el asunto brevemente...')
+                    .setStyle(TextInputStyle.Short)
+                    .setMaxLength(100)
+                    .setRequired(true);
+
+                const descInput = new TextInputBuilder()
+                    .setCustomId('ticket_description')
+                    .setLabel('Detalles / Descripción')
+                    .setPlaceholder('Cuéntanos con detalle el motivo de tu contacto...')
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setMaxLength(500)
+                    .setRequired(true);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(subjectInput),
+                    new ActionRowBuilder().addComponents(descInput)
+                );
+
+                await interaction.showModal(modal);
+            }
         }
 
         // Manejar envío de Modales
         if (interaction.isModalSubmit()) {
             const { customId, guild, member } = interaction;
             
-            if (customId === 'qvis_ticket_modal') {
+            if (customId.startsWith('qvis_ticket_modal_')) {
                 await interaction.deferReply({ ephemeral: true });
 
+                const categoryKey = customId.split('_')[3]; // 'tecnico', 'reportes', etc.
                 const config = getGuildConfig(guild.id);
                 if (!config) return interaction.editReply('❌ Error de configuración.');
 
@@ -216,14 +334,15 @@ module.exports = {
                 const ticketNum = (config.ticketCounter || 0) + 1;
                 setGuildConfig(guild.id, { ticketCounter: ticketNum });
 
-                const ticketChannelName = `ticket-${String(ticketNum).padStart(4, '0')}`;
+                const ticketChannelName = `${categoryKey}-${String(ticketNum).padStart(4, '0')}`;
+                const targetCategoryId = config.categories[categoryKey];
 
                 try {
-                    // Crear canal de texto
+                    // Crear canal en la categoría correspondiente
                     const channel = await guild.channels.create({
                         name: ticketChannelName,
                         type: ChannelType.GuildText,
-                        parent: config.categoryId,
+                        parent: targetCategoryId,
                         permissionOverwrites: [
                             {
                                 id: guild.roles.everyone.id,
@@ -240,16 +359,22 @@ module.exports = {
                         ]
                     });
 
+                    // Guardar ID del creador en la sesión
+                    ticketSessionData.set(channel.id, {
+                        creatorId: member.id,
+                        agentId: null
+                    });
+
                     // Mensaje interno del ticket
                     const embedTicket = new EmbedBuilder()
-                        .setTitle(`🎫 Ticket #${String(ticketNum).padStart(4, '0')}`)
-                        .setDescription(`¡Hola ${member}! El equipo de soporte de **Qvis** te atenderá pronto.`)
+                        .setTitle(`🎫 Ticket #${String(ticketNum).padStart(4, '0')} (${categoryKey.toUpperCase()})`)
+                        .setDescription(`¡Hola ${member}! El equipo de soporte asignado te atenderá pronto.`)
                         .addFields(
                             { name: 'Asunto', value: subject, inline: false },
                             { name: 'Descripción', value: description, inline: false }
                         )
                         .setColor('#5865F2')
-                        .setFooter({ text: 'Usa los botones inferiores para gestionar el ticket.' })
+                        .setFooter({ text: 'Qvis Ticket System • Usa los botones para administrar.' })
                         .setTimestamp();
 
                     const row = new ActionRowBuilder().addComponents(
@@ -278,6 +403,7 @@ module.exports = {
                                 .addFields(
                                     { name: 'Creador', value: `${member.user.tag} (${member.id})`, inline: true },
                                     { name: 'Canal', value: `${channel}`, inline: true },
+                                    { name: 'Categoría', value: `${categoryKey.toUpperCase()}`, inline: true },
                                     { name: 'Asunto', value: subject }
                                 )
                                 .setColor('#5865F2')
@@ -288,7 +414,7 @@ module.exports = {
 
                 } catch (error) {
                     console.error(error);
-                    await interaction.editReply('❌ Ocurrió un error al crear el canal de tu ticket. Verifica que el bot tenga los permisos de "Gestionar Canales".');
+                    await interaction.editReply('❌ Ocurrió un error al crear el canal de tu ticket.');
                 }
             }
         }
