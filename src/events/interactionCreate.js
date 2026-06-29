@@ -1,6 +1,7 @@
 const { Events, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } = require('discord.js');
 const { getGuildConfig, setGuildConfig } = require('../utils/ticketDb');
 const { translate } = require('../utils/i18n');
+const htmlTranscripts = require('discord-html-transcripts');
 
 // Almacenamiento en memoria para guardar el creador y agente de cada ticket temporalmente para la valoración
 const ticketSessionData = new Map();
@@ -173,33 +174,65 @@ module.exports = {
                 }
             }
 
-            // Botón de Eliminar Ticket (Con trigger de feedback DM)
+            // Botón de Eliminar Ticket (Con trigger de feedback DM + Transcripts automáticos a Logs y Creador)
             if (customId === 'qvis_ticket_delete') {
                 await interaction.reply(translate('deleting_channel'));
 
                 const session = ticketSessionData.get(channel.id);
-                if (session && session.creatorId) {
-                    try {
-                        const user = await client.users.fetch(session.creatorId);
-                        
-                        const starRow = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder().setCustomId(`feedback_star_1_${session.agentId || 'none'}`).setLabel('⭐').setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder().setCustomId(`feedback_star_2_${session.agentId || 'none'}`).setLabel('⭐⭐').setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder().setCustomId(`feedback_star_3_${session.agentId || 'none'}`).setLabel('⭐⭐⭐').setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder().setCustomId(`feedback_star_4_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary),
-                            new ButtonBuilder().setCustomId(`feedback_star_5_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary)
-                        );
+                
+                try {
+                    // Generar la transcripción en HTML usando discord-html-transcripts
+                    const attachment = await htmlTranscripts.createTranscript(channel, {
+                        limit: -1,
+                        fileName: `transcript-${channel.name}.html`,
+                        minify: true,
+                        saveImages: true
+                    });
 
-                        const feedbackEmbed = new EmbedBuilder()
-                            .setTitle(translate('feedback_title'))
-                            .setDescription(translate('feedback_desc', { guild: guild.name }))
-                            .setColor('#5865F2')
-                            .setTimestamp();
-
-                        await user.send({ embeds: [feedbackEmbed], components: [starRow] });
-                    } catch (err) {
-                        console.log('No se pudo enviar mensaje directo de valoración (DMs cerrados).');
+                    // 1. Enviar transcript al Canal de Logs
+                    if (config && config.logsChannelId) {
+                        const logChannel = guild.channels.cache.get(config.logsChannelId);
+                        if (logChannel) {
+                            await logChannel.send({
+                                content: `📁 **HTML Transcript** for \`${channel.name}\` closed by **${member.user.tag}**:`,
+                                files: [attachment]
+                            });
+                        }
                     }
+
+                    // 2. Enviar transcript y encuesta por DM al creador del ticket
+                    if (session && session.creatorId) {
+                        try {
+                            const user = await client.users.fetch(session.creatorId);
+
+                            // Enviar transcript HTML primero
+                            await user.send({
+                                content: `📁 Here is the HTML transcript of your ticket \`${channel.name}\` in **${guild.name}**:`,
+                                files: [attachment]
+                            });
+
+                            // Enviar feedback embed
+                            const starRow = new ActionRowBuilder().addComponents(
+                                new ButtonBuilder().setCustomId(`feedback_star_1_${session.agentId || 'none'}`).setLabel('⭐').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`feedback_star_2_${session.agentId || 'none'}`).setLabel('⭐⭐').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`feedback_star_3_${session.agentId || 'none'}`).setLabel('⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`feedback_star_4_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary),
+                                new ButtonBuilder().setCustomId(`feedback_star_5_${session.agentId || 'none'}`).setLabel('⭐⭐⭐⭐⭐').setStyle(ButtonStyle.Secondary)
+                            );
+
+                            const feedbackEmbed = new EmbedBuilder()
+                                .setTitle(translate('feedback_title'))
+                                .setDescription(translate('feedback_desc', { guild: guild.name }))
+                                .setColor('#5865F2')
+                                .setTimestamp();
+
+                            await user.send({ embeds: [feedbackEmbed], components: [starRow] });
+                        } catch (err) {
+                            console.log('Could not DM user the transcript/feedback (DMs closed).');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error generating HTML transcript on deletion:', err);
                 }
 
                 setTimeout(async () => {
@@ -207,34 +240,30 @@ module.exports = {
                         ticketSessionData.delete(channel.id);
                         await channel.delete();
                     } catch (err) {
-                        console.error('Error al borrar canal:', err);
+                        console.error('Error deleting channel:', err);
                     }
                 }, 5000);
             }
 
-            // Botón de Transcripción
+            // Botón de Transcripción Manual (HTML interactivo y descargable)
             if (customId === 'qvis_ticket_transcript') {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.reply({ content: translate('transcribing_ticket'), ephemeral: true });
                 try {
-                    const messages = await channel.messages.fetch({ limit: 100 });
-                    let transcript = `Transcript for ticket: ${channel.name}\n\n`;
-                    
-                    const sortedMessages = messages.reverse();
-                    sortedMessages.forEach(msg => {
-                        transcript += `[${msg.createdAt.toLocaleString()}] ${msg.author.tag}: ${msg.content}\n`;
+                    const attachment = await htmlTranscripts.createTranscript(channel, {
+                        limit: -1,
+                        fileName: `transcript-${channel.name}.html`,
+                        minify: true,
+                        saveImages: true
                     });
 
-                    const buffer = Buffer.from(transcript, 'utf-8');
-                    await interaction.editReply({
-                        content: 'Transcript file:',
-                        files: [{
-                            attachment: buffer,
-                            name: `transcript-${channel.name}.txt`
-                        }]
+                    await interaction.followUp({
+                        content: translate('transcript_sent'),
+                        files: [attachment],
+                        ephemeral: true
                     });
                 } catch (err) {
                     console.error(err);
-                    await interaction.editReply('❌ Error.');
+                    await interaction.followUp({ content: '❌ Error generating transcript.', ephemeral: true });
                 }
             }
 

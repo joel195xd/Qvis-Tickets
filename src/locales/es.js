@@ -55,6 +55,8 @@ module.exports = {
 
     deleting_channel: "🧹 Generando encuesta de valoración y eliminando canal en 5 segundos...",
     no_logs_direct_feedback: "Encuesta de feedback enviada por DM.",
+    transcribing_ticket: "📁 Generando transcripción HTML del ticket...",
+    transcript_sent: "✅ La transcripción HTML ha sido enviada exitosamente.",
 
     // Command Utils
     only_in_ticket: "❌ Este comando solo puede ser utilizado dentro de un canal de ticket.",

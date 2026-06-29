@@ -55,6 +55,8 @@ module.exports = {
 
     deleting_channel: "🧹 Generating feedback survey and deleting channel in 5 seconds...",
     no_logs_direct_feedback: "DM feedback survey sent.",
+    transcribing_ticket: "📁 Generating HTML transcript of the ticket...",
+    transcript_sent: "✅ HTML Transcript has been sent successfully.",
 
     // Command Utils
     only_in_ticket: "❌ This command can only be used inside a ticket channel.",
