@@ -8,71 +8,71 @@ module.exports = {
         .setDescription('Configure the Qvis ticket system')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addChannelOption(option =>
-            option.setName('canal-panel')
+            option.setName('panel-channel')
                 .setDescription('Channel where the ticket panel will be sent')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildText)
         )
         .addChannelOption(option =>
-            option.setName('categoria-tecnico')
+            option.setName('technical-category')
                 .setDescription('Category for Technical Support')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
-            option.setName('categoria-reportes')
+            option.setName('reports-category')
                 .setDescription('Category for User Reports')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
-            option.setName('categoria-compras')
+            option.setName('purchases-category')
                 .setDescription('Category for Purchases / Donations')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
-            option.setName('categoria-postulaciones')
+            option.setName('applications-category')
                 .setDescription('Category for Staff Applications')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addRoleOption(option =>
-            option.setName('rol-soporte')
+            option.setName('support-role')
                 .setDescription('General support role')
                 .setRequired(true)
         )
         .addChannelOption(option =>
-            option.setName('canal-logs')
+            option.setName('logs-channel')
                 .setDescription('Channel for logs')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildText)
         ),
 
     async execute(interaction) {
-        const canalPanel = interaction.options.getChannel('canal-panel');
-        const catTecnico = interaction.options.getChannel('categoria-tecnico');
-        const catReportes = interaction.options.getChannel('categoria-reportes');
-        const catCompras = interaction.options.getChannel('categoria-compras');
-        const catPostulaciones = interaction.options.getChannel('categoria-postulaciones');
-        const rolSoporte = interaction.options.getRole('rol-soporte');
-        const canalLogs = interaction.options.getChannel('canal-logs');
+        const panelChannel = interaction.options.getChannel('panel-channel');
+        const catTechnical = interaction.options.getChannel('technical-category');
+        const catReports = interaction.options.getChannel('reports-category');
+        const catPurchases = interaction.options.getChannel('purchases-category');
+        const catApplications = interaction.options.getChannel('applications-category');
+        const supportRole = interaction.options.getRole('support-role');
+        const logsChannel = interaction.options.getChannel('logs-channel');
 
-        // Guardar configuración
+        // Save config
         setGuildConfig(interaction.guildId, {
-            panelChannelId: canalPanel.id,
+            panelChannelId: panelChannel.id,
             categories: {
-                tecnico: catTecnico.id,
-                reportes: catReportes.id,
-                compras: catCompras.id,
-                postulaciones: catPostulaciones.id
+                tecnico: catTechnical.id,
+                reportes: catReports.id,
+                compras: catPurchases.id,
+                postulaciones: catApplications.id
             },
-            supportRoleId: rolSoporte.id,
-            logsChannelId: canalLogs.id,
+            supportRoleId: supportRole.id,
+            logsChannelId: logsChannel.id,
             ticketCounter: 0
         });
 
-        // Embed del Panel traducido
+        // Translate Panel Embed
         const embed = new EmbedBuilder()
             .setTitle(translate('panel_title'))
             .setDescription(translate('panel_description'))
@@ -81,7 +81,7 @@ module.exports = {
             .setFooter({ text: translate('panel_footer'), iconURL: interaction.client.user.displayAvatarURL() })
             .setTimestamp();
 
-        // Botón traducido
+        // Translate Button
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('qvis_ticket_open')
@@ -91,16 +91,16 @@ module.exports = {
         );
 
         try {
-            await canalPanel.send({ embeds: [embed], components: [row] });
+            await panelChannel.send({ embeds: [embed], components: [row] });
             
             await interaction.reply({
-                content: translate('setup_success', { channel: `<#${canalPanel.id}>`, logs: `<#${canalLogs.id}>` }),
+                content: translate('setup_success', { channel: `<#${panelChannel.id}>`, logs: `<#${logsChannel.id}>` }),
                 ephemeral: true
             });
         } catch (error) {
             console.error(error);
             await interaction.reply({
-                content: translate('setup_error', { channel: `<#${canalPanel.id}>` }),
+                content: translate('setup_error', { channel: `<#${panelChannel.id}>` }),
                 ephemeral: true
             });
         }

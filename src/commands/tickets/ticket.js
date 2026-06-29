@@ -11,7 +11,7 @@ module.exports = {
                 .setName('add')
                 .setDescription('Adds a member to the current ticket')
                 .addUserOption(option =>
-                    option.setName('usuario')
+                    option.setName('user')
                         .setDescription('The user you want to add')
                         .setRequired(true)
                 )
@@ -21,7 +21,7 @@ module.exports = {
                 .setName('remove')
                 .setDescription('Removes a member from the current ticket')
                 .addUserOption(option =>
-                    option.setName('usuario')
+                    option.setName('user')
                         .setDescription('The user you want to remove')
                         .setRequired(true)
                 )
@@ -29,7 +29,7 @@ module.exports = {
 
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
-        const targetUser = interaction.options.getUser('usuario');
+        const targetUser = interaction.options.getUser('user');
         const channel = interaction.channel;
 
         // Validar si es un canal de ticket
