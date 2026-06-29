@@ -1,42 +1,63 @@
 # Qvis Tickets 🎫
 
-Un bot de soporte de Discord moderno, interactivo y altamente configurable, diseñado para comunidades, equipos de desarrollo y creadores en GitHub.
+A modern, highly configurable, and interactive Discord support ticket bot designed for communities, development teams, and creators on GitHub.
 
-## 🚀 Características
-- **Panel de Tickets Moderno**: Embeds atractivos e interactivos para que los usuarios abran soporte con un botón.
-- **Formularios Modales**: Pregunta al usuario por el asunto y detalles de su problema antes de crear el canal.
-- **Canales Dinámicos**: Permisos automáticos para el creador del ticket y el rol de soporte configurado.
-- **Control Total**: Botones para Cerrar (🔒), Generar Transcripción de mensajes (📁) y Eliminar el canal (❌).
-- **Sistema de Logs**: Registra la creación y cierre de tickets.
-- **Base de Datos Local**: Guarda las configuraciones de cada servidor usando JSON local.
+## 🚀 Features
+- **Modern Ticket Panel**: Sleek and interactive embeds allowing users to open support requests with a single button click.
+- **Form Modals**: Prompts users for a title/subject and detailed description using Discord modals before generating a channel.
+- **Multi-Category Dropdown 📂**: Users can choose between categories like **Technical Support 🛠️**, **User Reports 🚨**, **Purchases / Donations 💸**, and **Staff Applications 📝** via interactive select menus.
+- **Dynamic Permission Controls**: Channels are created private by default, only visible to the ticket creator and the configured Support Role.
+- **Live Ticket Management ⚙️**: Easy command utilities to add (`/ticket add @member`) or remove (`/ticket remove @member`) users dynamically.
+- **Interactive Control Buttons**: Built-in buttons inside the ticket channel for:
+  - 🔒 **Close**: Closes the ticket and locks channel write permissions.
+  - 🙋‍♂️ **Claim**: Staff can claim the ticket exclusively.
+  - 📁 **Transcript**: Generates a `.txt` log of the chat history.
+  - ❌ **Delete**: Safely removes the channel after a 5-second countdown.
+- **Star Feedback Rating System ⭐**: Automatically sends a private message (DM) rating survey (1-5 stars) to the user when a ticket is deleted, logging the feedback results in the server logs.
+- **i18n Translation Engine**: Dynamic translation support, configured in English (`en`) by default, with Spanish (`es`) dictionary built-in.
 
-## 🛠️ Instalación y Configuración
+## 🛠️ Installation & Setup
 
-1. **Clonar e Instalar dependencias**:
+1. **Clone the Repository & Install Dependencies**:
    ```bash
+   git clone https://github.com/joel195xd/Qvis-Tickets.git
+   cd Qvis-Tickets
    npm install
    ```
 
-2. **Configurar Variables de Entorno**:
-   Crea o edita el archivo `.env` en la raíz del proyecto:
+2. **Configure Environment Variables**:
+   Create or edit the `.env` file in the root directory:
    ```env
-   DISCORD_TOKEN=TU_DISCORD_TOKEN
-   CLIENT_ID=TU_CLIENT_ID
+   DISCORD_TOKEN=YOUR_DISCORD_TOKEN
+   CLIENT_ID=YOUR_CLIENT_ID
    ```
 
-3. **Registrar Comandos de Barra Diagonal (Slash Commands)**:
+3. **Register Slash Commands**:
+   Run the deployment script to register slash commands globally:
    ```bash
    node deploy-commands.js
    ```
 
-4. **Ejecutar el Bot**:
+4. **Start the Bot**:
    ```bash
    node index.js
    ```
 
-## ⚙️ Configuración en Discord
-Usa el comando `/setup-tickets` en tu servidor para iniciar el asistente de configuración interactivamente:
-- **canal-panel**: Canal donde se enviará el embed del panel.
-- **categoria**: Categoría donde se agruparán los canales de soporte.
-- **rol-soporte**: Rol que tiene permisos de responder los tickets.
-- **canal-logs** *(opcional)*: Canal para registrar logs de creación y cierre.
+## ⚙️ In-Discord Configuration
+Use the `/setup-tickets` command in your server to trigger the setup assistant:
+- **canal-panel**: Text channel where the ticket system panel will be displayed.
+- **categoria-tecnico**: Category channel for Technical Support.
+- **categoria-reportes**: Category channel for User Reports.
+- **categoria-compras**: Category channel for Purchase/Donation tickets.
+- **categoria-postulaciones**: Category channel for Staff Applications.
+- **rol-soporte**: Role allowed to manage and view support tickets.
+- **canal-logs**: Channel dedicated to logging creation, closure, and star ratings feedback.
+
+---
+## 🌐 Language Localization
+Change the global bot language inside `src/utils/i18n.js`:
+```javascript
+const config = {
+    language: 'en' // Change to 'es' for Spanish
+};
+```
