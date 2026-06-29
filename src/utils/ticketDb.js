@@ -11,7 +11,7 @@ function readConfig() {
         const data = fs.readFileSync(configPath, 'utf8');
         return JSON.parse(data);
     } catch (error) {
-        console.error('Error al leer ticketConfig.json:', error);
+        console.error('Error reading ticketConfig.json:', error);
         return {};
     }
 }
@@ -20,7 +20,7 @@ function writeConfig(data) {
     try {
         fs.writeFileSync(configPath, JSON.stringify(data, null, 4));
     } catch (error) {
-        console.error('Error al escribir en ticketConfig.json:', error);
+        console.error('Error writing to ticketConfig.json:', error);
     }
 }
 

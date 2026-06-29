@@ -23,14 +23,14 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
     try {
-        console.log(`Iniciando la actualización de ${commands.length} comandos de aplicación (/) de forma global.`);
+        console.log(`Started refreshing ${commands.length} application (/) commands globally.`);
 
         const data = await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
             { body: commands },
         );
 
-        console.log(`¡Se recargaron exitosamente ${data.length} comandos de aplicación (/) de forma global!`);
+        console.log(`Successfully reloaded ${data.length} application (/) commands globally.`);
     } catch (error) {
         console.error(error);
     }

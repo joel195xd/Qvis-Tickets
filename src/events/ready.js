@@ -4,6 +4,6 @@ module.exports = {
     name: Events.ClientReady,
     once: true,
     execute(client) {
-        console.log(`🤖 ¡Qvis Tickets listo! Sesión iniciada como ${client.user.tag}`);
+        console.log(`🤖 Qvis Tickets is ready! Logged in as ${client.user.tag}`);
     },
 };
