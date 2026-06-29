@@ -68,7 +68,6 @@ module.exports = {
             if (customId === 'qvis_ticket_close') {
                 await interaction.deferReply();
 
-                // Cambiar permisos para que el usuario ya no pueda escribir, pero vea el ticket cerrado
                 try {
                     await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
                     
@@ -93,7 +92,7 @@ module.exports = {
 
                     await interaction.editReply({ embeds: [closedEmbed], components: [row] });
 
-                    // Opcional: Logs del ticket
+                    // Log del ticket cerrado
                     if (config.logsChannelId) {
                         const logChannel = guild.channels.cache.get(config.logsChannelId);
                         if (logChannel) {
@@ -111,6 +110,53 @@ module.exports = {
                 } catch (err) {
                     console.error(err);
                     await interaction.editReply('❌ Ocurrió un error al cerrar el ticket.');
+                }
+            }
+
+            // Botón de Reclamar Ticket (Claim)
+            if (customId === 'qvis_ticket_claim') {
+                try {
+                    // Verificar si el usuario tiene el rol de soporte configurado
+                    if (!member.roles.cache.has(config.supportRoleId)) {
+                        return interaction.reply({ content: '❌ Solo los miembros del equipo de soporte pueden reclamar este ticket.', ephemeral: true });
+                    }
+
+                    // Actualizar permisos: quitar al rol de soporte general y dar acceso directo al que reclamó
+                    await channel.permissionOverwrites.edit(config.supportRoleId, { SendMessages: false });
+                    await channel.permissionOverwrites.edit(member.id, {
+                        ViewChannel: true,
+                        SendMessages: true,
+                        EmbedLinks: true,
+                        AttachFiles: true
+                    });
+
+                    // Modificar el embed del ticket original (eliminando el botón de Claim)
+                    const claimEmbed = new EmbedBuilder()
+                        .setTitle('🙋‍♂️ Ticket Reclamado')
+                        .setDescription(`El miembro de soporte **${member.user.tag}** atenderá esta solicitud en exclusiva de ahora en adelante.`)
+                        .setColor('#FEE75C')
+                        .setTimestamp();
+
+                    await interaction.reply({ embeds: [claimEmbed] });
+
+                    // Log de ticket reclamado
+                    if (config.logsChannelId) {
+                        const logChannel = guild.channels.cache.get(config.logsChannelId);
+                        if (logChannel) {
+                            const logEmbed = new EmbedBuilder()
+                                .setTitle('🙋‍♂️ Ticket Reclamado')
+                                .addFields(
+                                    { name: 'Canal', value: `${channel.name}`, inline: true },
+                                    { name: 'Agente', value: `${member.user.tag}`, inline: true }
+                                )
+                                .setColor('#FEE75C')
+                                .setTimestamp();
+                            await logChannel.send({ embeds: [logEmbed] });
+                        }
+                    }
+                } catch (err) {
+                    console.error(err);
+                    await interaction.reply({ content: '❌ Ocurrió un error al reclamar el ticket.', ephemeral: true });
                 }
             }
 
@@ -209,9 +255,14 @@ module.exports = {
                     const row = new ActionRowBuilder().addComponents(
                         new ButtonBuilder()
                             .setCustomId('qvis_ticket_close')
-                            .setLabel('Cerrar Ticket')
+                            .setLabel('Cerrar')
                             .setEmoji('🔒')
-                            .setStyle(ButtonStyle.Secondary)
+                            .setStyle(ButtonStyle.Secondary),
+                        new ButtonBuilder()
+                            .setCustomId('qvis_ticket_claim')
+                            .setLabel('Reclamar')
+                            .setEmoji('🙋‍♂️')
+                            .setStyle(ButtonStyle.Success)
                     );
 
                     await channel.send({ content: `<@&${config.supportRoleId}> | ${member}`, embeds: [embedTicket], components: [row] });
