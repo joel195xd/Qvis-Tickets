@@ -1,49 +1,50 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const { setGuildConfig } = require('../../utils/ticketDb');
+const { translate } = require('../../utils/i18n');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('setup-tickets')
-        .setDescription('Configura el sistema de tickets de Qvis')
+        .setDescription('Configure the Qvis ticket system')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addChannelOption(option =>
             option.setName('canal-panel')
-                .setDescription('Canal donde se enviará el panel de tickets')
+                .setDescription('Channel where the ticket panel will be sent')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildText)
         )
         .addChannelOption(option =>
             option.setName('categoria-tecnico')
-                .setDescription('Categoría para Soporte Técnico')
+                .setDescription('Category for Technical Support')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
             option.setName('categoria-reportes')
-                .setDescription('Categoría para Reportes de Usuarios')
+                .setDescription('Category for User Reports')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
             option.setName('categoria-compras')
-                .setDescription('Categoría para Consultas de Compras/Donaciones')
+                .setDescription('Category for Purchases / Donations')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addChannelOption(option =>
             option.setName('categoria-postulaciones')
-                .setDescription('Categoría para Aplicaciones/Postulaciones')
+                .setDescription('Category for Staff Applications')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildCategory)
         )
         .addRoleOption(option =>
             option.setName('rol-soporte')
-                .setDescription('Rol general para Soporte')
+                .setDescription('General support role')
                 .setRequired(true)
         )
         .addChannelOption(option =>
             option.setName('canal-logs')
-                .setDescription('Canal de logs')
+                .setDescription('Channel for logs')
                 .setRequired(true)
                 .addChannelTypes(ChannelType.GuildText)
         ),
@@ -57,7 +58,7 @@ module.exports = {
         const rolSoporte = interaction.options.getRole('rol-soporte');
         const canalLogs = interaction.options.getChannel('canal-logs');
 
-        // Guardar configuración multi-categoría en la base de datos
+        // Guardar configuración
         setGuildConfig(interaction.guildId, {
             panelChannelId: canalPanel.id,
             categories: {
@@ -71,28 +72,20 @@ module.exports = {
             ticketCounter: 0
         });
 
-        // Embed del Panel de Tickets
+        // Embed del Panel traducido
         const embed = new EmbedBuilder()
-            .setTitle('🎫 Qvis Support & Tickets')
-            .setDescription(
-                '¿Necesitas ayuda con algún proyecto, reporte o consulta?\n' +
-                'Abre un ticket de soporte interactivo presionando el botón de abajo y seleccionando la categoría correspondiente.\n\n' +
-                '**Categorías disponibles:**\n' +
-                '🛠️ **Soporte Técnico**: Dudas o problemas con el software.\n' +
-                '🚨 **Reportes**: Reportes de usuarios o comportamientos inadecuados.\n' +
-                '💸 **Compras / Donaciones**: Consultas de pagos, compras o soporte de tiers.\n' +
-                '📝 **Postulaciones**: Aplica para formar parte de nuestro equipo.'
-            )
+            .setTitle(translate('panel_title'))
+            .setDescription(translate('panel_description'))
             .setColor('#2F3136')
             .setThumbnail(interaction.guild.iconURL({ dynamic: true }) || null)
-            .setFooter({ text: 'Qvis Ticket System • Rápido y Organizado', iconURL: interaction.client.user.displayAvatarURL() })
+            .setFooter({ text: translate('panel_footer'), iconURL: interaction.client.user.displayAvatarURL() })
             .setTimestamp();
 
-        // Botón interactivo moderno
+        // Botón traducido
         const row = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('qvis_ticket_open')
-                .setLabel('Crear Ticket')
+                .setLabel(translate('btn_create_ticket'))
                 .setEmoji('🎫')
                 .setStyle(ButtonStyle.Secondary)
         );
@@ -101,13 +94,13 @@ module.exports = {
             await canalPanel.send({ embeds: [embed], components: [row] });
             
             await interaction.reply({
-                content: `✅ ¡Sistema de tickets multi-categoría de **Qvis** configurado exitosamente!\n- Panel enviado a: ${canalPanel}\n- Canal de logs: ${canalLogs}`,
+                content: translate('setup_success', { channel: `<#${canalPanel.id}>`, logs: `<#${canalLogs.id}>` }),
                 ephemeral: true
             });
         } catch (error) {
             console.error(error);
             await interaction.reply({
-                content: `❌ Hubo un error al enviar el panel al canal ${canalPanel}.`,
+                content: translate('setup_error', { channel: `<#${canalPanel.id}>` }),
                 ephemeral: true
             });
         }

@@ -1,27 +1,28 @@
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { translate } = require('../../utils/i18n');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('ticket')
-        .setDescription('Comandos de administración para gestionar tickets en caliente')
+        .setDescription('Admin commands to manage tickets')
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .addSubcommand(subcommand =>
             subcommand
                 .setName('add')
-                .setDescription('Añade un miembro al ticket actual')
+                .setDescription('Adds a member to the current ticket')
                 .addUserOption(option =>
                     option.setName('usuario')
-                        .setDescription('El usuario que deseas añadir')
+                        .setDescription('The user you want to add')
                         .setRequired(true)
                 )
         )
         .addSubcommand(subcommand =>
             subcommand
                 .setName('remove')
-                .setDescription('Remueve un miembro del ticket actual')
+                .setDescription('Removes a member from the current ticket')
                 .addUserOption(option =>
                     option.setName('usuario')
-                        .setDescription('El usuario que deseas remover')
+                        .setDescription('The user you want to remove')
                         .setRequired(true)
                 )
         ),
@@ -31,10 +32,10 @@ module.exports = {
         const targetUser = interaction.options.getUser('usuario');
         const channel = interaction.channel;
 
-        // Validar si es un canal de ticket válido (por el nombre)
-        if (!channel.name.startsWith('ticket-')) {
+        // Validar si es un canal de ticket
+        if (!channel.name.includes('-')) {
             return interaction.reply({
-                content: '❌ Este comando solo puede ser utilizado dentro de un canal de ticket.',
+                content: translate('only_in_ticket'),
                 ephemeral: true
             });
         }
@@ -48,26 +49,25 @@ module.exports = {
                     AttachFiles: true
                 });
                 await interaction.reply({
-                    content: `✅ **${targetUser.tag}** ha sido añadido al ticket.`
+                    content: translate('user_added', { user: targetUser.tag })
                 });
             } catch (error) {
                 console.error(error);
                 await interaction.reply({
-                    content: '❌ No se pudo añadir al usuario al canal. Revisa los permisos del bot.',
+                    content: translate('cmd_error_add'),
                     ephemeral: true
                 });
             }
         } else if (subcommand === 'remove') {
             try {
-                // Quitarle los permisos explícitos de ver el canal
                 await channel.permissionOverwrites.delete(targetUser.id);
                 await interaction.reply({
-                    content: `🗑️ **${targetUser.tag}** ha sido removido del ticket.`
+                    content: translate('user_removed', { user: targetUser.tag })
                 });
             } catch (error) {
                 console.error(error);
                 await interaction.reply({
-                    content: '❌ No se pudo remover al usuario del canal.',
+                    content: translate('cmd_error_remove'),
                     ephemeral: true
                 });
             }
